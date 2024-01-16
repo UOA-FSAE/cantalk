@@ -106,7 +106,7 @@ class CanDapter(Node):
             return
 
         self.send_command(
-            f'T{msg.can.std_id:03X}'
+            f'T{msg.can.id:03X}'
             f'{len(msg.can.data):01X}'
             f'{"".join(["%02X" % byte for byte in msg.can.data])}'
             .encode())
