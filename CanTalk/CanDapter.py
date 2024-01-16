@@ -156,7 +156,7 @@ class CanDapter(Node):
         can_stamped = CANStamped()
         can_stamped.header.frame_id = 'CanDapter_node'
         can_stamped.header.stamp = self.get_clock().now().to_msg()
-        can_stamped.can.std_id = frame[0]
+        can_stamped.can.id = frame[0]
         can_stamped.can.data = frame[2]
 
         return can_stamped
