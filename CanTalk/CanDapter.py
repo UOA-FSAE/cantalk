@@ -7,7 +7,7 @@ from moa_msgs.msg import CANStamped
 import re
 
 
-def clean_can_frame(data) -> list[str]:
+def clean_can_frame(data):
     frames = re.sub(r'[^a-zA-Z0-9]', '', data)
     frames = frames.split('t')
     frames.remove('')
@@ -30,7 +30,7 @@ def parse_can_frame(frame):
     return id, length, data
 
 
-def get_baud_rate_command(rate: int) -> bytes:
+def get_baud_rate_command(rate: int):
     command = b'S5'
 
     if rate == 10:
