@@ -55,9 +55,9 @@ def get_baud_rate_command(rate: int):
     return command
 
 
-class CanDapter(Node):
+class candapter(Node):
     def __init__(self):
-        super().__init__('CanDapter_node')
+        super().__init__('candapter_node')
 
         self.declare_parameters(
             namespace='',
@@ -102,7 +102,7 @@ class CanDapter(Node):
         self.serial_thread.start()
 
     def can_send_callback(self, msg):
-        if msg.header.frame_id == 'CanDapter_node':
+        if msg.header.frame_id == 'candapter_node':
             return
 
         self.send_command(
@@ -154,7 +154,7 @@ class CanDapter(Node):
       """
 
         can_stamped = CANStamped()
-        can_stamped.header.frame_id = 'CanDapter_node'
+        can_stamped.header.frame_id = 'candapter_node'
         can_stamped.header.stamp = self.get_clock().now().to_msg()
         can_stamped.can.id = frame[0]
         can_stamped.can.data = frame[2]
@@ -176,7 +176,7 @@ class CanDapter(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = CanDapter()
+    node = candapter()
     rclpy.spin(node)
     node.send_command(b'C')
     node.destroy_node()
