@@ -2,7 +2,7 @@ from setuptools import setup
 import os
 from glob import glob
 
-package_name = 'CanTalk'
+package_name = 'cantalk'
 
 setup(
     name=package_name,
@@ -24,7 +24,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'candapter_node = CanTalk.CanDapter:main'
+            'candapter_node = cantalk.candapter:main'
         ],
     },
 )
