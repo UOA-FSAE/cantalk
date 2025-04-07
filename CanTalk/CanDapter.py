@@ -6,6 +6,11 @@ from std_msgs.msg import Header
 from moa_msgs.msg import CANStamped
 import re
 
+# fsae must be granted to the dialout group permission for this node to run:
+# if [Errno 13] Permission denied is printed use the following command to add
+# the current user to the dialout group: 
+# sudo usermod -a -G dialout $USERsudo usermod -a -G dialout $USER
+
 
 def clean_can_frame(data):
     frames = re.sub(r'[^a-zA-Z0-9]', '', data)
