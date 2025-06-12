@@ -62,7 +62,7 @@ def get_baud_rate_command(rate: int):
 
 class CanDapter(Node):
     def __init__(self):
-        super().__init__('CanDapter_node')
+        super().__init__('candapter_node')
 
         self.declare_parameters(
             namespace='',
@@ -81,14 +81,14 @@ class CanDapter(Node):
 
         self.can_subscription = self.create_subscription(
             CANStamped,
-            'can',
+            'pub_raw_can',
             self.can_send_callback,
             10
         )
 
         self.can_publisher = self.create_publisher(
             CANStamped,
-            'can',
+            'sub_raw_can',
             10
         )
 
@@ -107,14 +107,16 @@ class CanDapter(Node):
         self.serial_thread.start()
 
     def can_send_callback(self, msg):
-        if msg.header.frame_id == 'CanDapter_node':
+        if msg.header.frame_id == 'candapter_node':
             return
-
+   
         self.send_command(
             f'T{msg.can.id:03X}'
             f'{len(msg.can.data):01X}'
             f'{"".join(["%02X" % byte for byte in msg.can.data])}'
             .encode())
+        
+        self.get_logger().info(f'Sent cmd')
 
     def read_serial(self):
         while True:
@@ -159,7 +161,7 @@ class CanDapter(Node):
       """
 
         can_stamped = CANStamped()
-        can_stamped.header.frame_id = 'CanDapter_node'
+        can_stamped.header.frame_id = 'candapter_node'
         can_stamped.header.stamp = self.get_clock().now().to_msg()
         can_stamped.can.id = frame[0]
         can_stamped.can.data = frame[2]
