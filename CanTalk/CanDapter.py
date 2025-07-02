@@ -2,6 +2,7 @@ import rclpy
 from rclpy.node import Node
 import serial
 import threading
+import time
 from std_msgs.msg import Header
 from moa_msgs.msg import CANStamped
 import re
@@ -61,8 +62,8 @@ def get_baud_rate_command(rate: int):
 
 
 class CanDapter(Node):
-    def __init__(self):
-        super().__init__('candapter_node')
+    def __init__(self, *vargs, **kwargs):
+        super().__init__('candapter_node', *vargs, **kwargs)
 
         self.declare_parameters(
             namespace='',
@@ -105,16 +106,30 @@ class CanDapter(Node):
         self.serial_thread = threading.Thread(target=self.read_serial)
         self.serial_thread.daemon = True
         self.serial_thread.start()
-
-    def can_send_callback(self, msg):
-        if msg.header.frame_id == 'candapter_node':
-            return
-   
-        self.send_command(
-            f'T{msg.can.id:03X}'
-            f'{len(msg.can.data):01X}'
-            f'{"".join(["%02X" % byte for byte in msg.can.data])}'
+        
+        self.on_start()
+    
+    def on_start(self):
+        self.get_logger().info("CanDapter Initialized")
+        # encode_message
+        
+    def shutdown(self):
+        # context is invalid when this function is called
+        self.get_logger().info("CanDapter shutdown")
+    
+    def encode_message(self, can_msg):
+        return (f'T{can_msg.id:03X}'
+            f'{len(can_msg.data):01X}'
+            f'{"".join(["%02X" % byte for byte in can_msg.data])}'
             .encode())
+
+    def can_send_callback(self, can_stamped_msg):
+        if can_stamped_msg.header.frame_id == 'candapter_node':
+            return # Question: what is this doing/stopping the node from doing?
+        
+        command = self.encode_message(can_stamped_msg.can)
+   
+        self.send_command(command)
         
         self.get_logger().info(f'Sent cmd')
 
@@ -144,10 +159,12 @@ class CanDapter(Node):
 
     def send_command(self, command: bytes):
         if not self.serial_port.is_open:
+            self.get_logger().error(f'Error Serial Port not open')
             return False
 
         msg = b'\015' + command + b'\015'
         self.serial_port.write(msg)
+        self.get_logger().info(f'CAN command: {command}')
         return True
 
     def can_frame_to_can_stamped(self, frame):
@@ -181,13 +198,65 @@ class CanDapter(Node):
         return response == b'\x06'
 
 
+from rclpy.context import Context
+from rclpy.executors import SingleThreadedExecutor
+import signal
+import sys
+
 def main(args=None):
-    rclpy.init(args=args)
-    node = CanDapter()
-    rclpy.spin(node)
+    
+    shutdown_delay_seconds = 2.0
+    context = Context()
+    
+    # Emergency shutdown handler - runs BEFORE ROS shutdown
+    def emergency_shutdown(signum, frame):
+        node.get_logger().info("Caught Ctrl+C — EMERGENCY SHUTDOWN")
+        # Call hardware-level disable immediately
+        if node.serial_port.is_open:
+            # node.send_zero_throttle()
+            node.get_logger().info("handle safety critical communications")
+        else:
+            node.get_logger().info("CAN bus not initialized — nothing can be sent.")
+        
+         # Now start delayed ROS shutdown in a thread
+        def delayed_shutdown():
+            node.get_logger().info(f"Waiting {shutdown_delay_seconds} seconds for clean shutdown...")
+            time.sleep(shutdown_delay_seconds)
+            executor.shutdown()
+
+        shutdown_thread = threading.Thread(target=delayed_shutdown)
+        shutdown_thread.start()
+
+    # Install our emergency signal handler BEFORE ROS 2 starts
+    signal.signal(signal.SIGINT, emergency_shutdown)
+
+    # Disable ROS 2 signal handler
+    rclpy.init(args=args, context=context, signal_handler_options=rclpy.signals.SignalHandlerOptions.NO)
+
+    executor = SingleThreadedExecutor(context=context)
+    node = CanDapter(context=context)
+    executor.add_node(node)
+    
+    # try:
+    #     # executor.spin()
+    #     rclpy.spin(node)
+    # except KeyboardInterrupt:
+    #     print("\nkeyboard interrupt signal intercepted")
+    #     # continue processing messages for 4 more seconds
+    #     # allows for communication to and from the MoTec prior to shutdown
+    #     rclpy.spin_until_future_complete(node, )
+        
+    # finally:
+    #     print("\nshutting down")
+    
+    # spin until the executor is shutdown
+    executor.spin()
+    node.get_logger().info("executor done spinning")
+    # Full shutdown after ROS executor exits
+    node.shutdown()
     node.send_command(b'C')
     node.destroy_node()
-    rclpy.shutdown()
+    rclpy.shutdown(context=context)
 
 
 if __name__ == '__main__':
